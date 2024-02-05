@@ -127,6 +127,11 @@ class GameGui:
                                 self.change_weapon(button["element"], *button["args"])
                             else:
                                 button["callback"](*button["args"])
+                if event.type == gui.UI_BUTTON_ON_UNHOVERED:
+                    for button in self.buttons:
+                        if button["element"] == event.ui_element:
+                            rect = button["element"].get_abs_rect()
+                            button["element"].set_image(pygame.transform.scale(pygame.image.load("imgs/UI_elements/Button_Flesh.png"), (rect[2], rect[3])))
         
             self.screen.blit(self.background_img, (0, 0))
             self.manager.update(fps)
