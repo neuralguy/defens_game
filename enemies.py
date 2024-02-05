@@ -22,22 +22,23 @@ class Enemies:
         self.enemies.append(Zombie(x, y))
 
 
-class Zombie():
+class Zombie(pygame.sprite.Sprite):
     def __init__(self, x, y) -> None:
+        pygame.sprite.Sprite.__init__(self)
         self.__x = x
         self.__y = y
         self.health = zombie_health
         self.speed = zombie_speed
         self.damage = zombie_damage
-        self.sprites = sprites["player"]
+        self.image = sprites["player"][0]
         self.rect = 0
         
     def draw(self, surface):
         player_pos = (self.__x + player_size[0] / 2, self.__y + player_size[1] / 2)
         randians = atan2(height / 2 - player_pos[1], width / 2 - player_pos[0])
         angle = degrees(randians)
-        rotated_sprite = pygame.transform.rotate(self.sprites[0], -angle)
-        self.rect = rotated_sprite.get_rect(center=self.sprites[0].get_rect(topleft=(self.__x, self.__y)).center)
+        rotated_sprite = pygame.transform.rotate(self.image, -angle)
+        self.rect = rotated_sprite.get_rect(center=self.image.get_rect(topleft=(self.__x, self.__y)).center)
         surface.blit(rotated_sprite, self.rect)
         
     def get_damage(self, damage):

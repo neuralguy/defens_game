@@ -1,158 +1,142 @@
-import pygame as pygame
 import pygame_gui as gui
-from sprites import prepare_sprites
-from player import Player
-from background import Grass
-from turrets import *
-from enemies import *
+import pygame
 from config import *
-import asyncio
+from game import Game
 
 
-class TimerManager:
-    def __init__(self):
-        self.timers = []
-
-    def add_timer(self, name: str, interval: float, callback: callable, *args):
-        timer = {
-            "name": name,
-            "interval": interval, # miliseconds
-            "callback": callback,
-            "args": args,
-            "next_update_time": pygame.time.get_ticks() + interval
-        }
-        self.timers.append(timer)
-    
-    def remove_timer(self, name):
-        """removing timer with name from the list of timers"""
-        for timer in self.timers:
-            if timer["name"] == name:
-                self.timers.remove(timer)
-                break
-
-    def update_timer(self, name, *args):
-        """updating arguments for the timer"""
-        for timer in self.timers:
-            if timer["name"] == name:
-                timer["args"] = args
-                break
-
-    def update(self):
-        """calling all timers"""
-        current_time = pygame.time.get_ticks()
-        for timer in self.timers:
-            if current_time >= timer["next_update_time"]:
-                timer["callback"](*timer["args"])
-                timer["next_update_time"] = current_time + timer["interval"]
-
-
-class Game():
-    def __init__(self) -> None:
-        self.name = None
-        self.width = None
-        self.height = None
-        self.cell_size = None
-        self.fps = None
-        self.grid_color = None
-        self.clock = None
-        self.screen = None
-        self.player = None
-        self.enemies = Enemies()
-        self.background = None
-        self.timer = None
-        self.mouse_pos = []
-        
-    def start_game(self, name: str, width: int, height: int, cell_size: int, fps: int) -> None:
-        """Initializing the pygame, setting all game variables and starting main game loop"""
-        pygame.init()
-        prepare_sprites()
-        self.name = name
-        pygame.display.set_caption(self.name)
-        self.width = width
-        self.height = height
-        self.cell_size = cell_size
-        self.fps = fps
-        self.grid_color = light_gray
-        self.screen = pygame.display.set_mode((self.width, self.height))
+class GameGui:
+    def __init__(self, screen):
+        self.manager = gui.UIManager((width, height), 'theme.json')
+        self.screen = screen
+        self.shop_card_size = 200
         self.clock = pygame.time.Clock()
-        self.player = Player()
-        self.enemies = Enemies()
-        self.background = Grass(0, 0)
-        self.timer = TimerManager()
-        self.mouse_pos = (0, 0)
-        self.score = 0
-        self.game_cycle()
+        self.weapon = "pistol"
+        self.background_img = pygame.transform.scale(pygame.image.load("imgs/main_menu/back1.jpg"), (width, height))
+        self.buttons = []
+        pygame.mixer.music.load("button_sound.mp3")
+            
+    def start_game(self) -> None:
+        game = Game()
+        game.init_game(game_title, width, height,fps, self.weapon)
         
-    async def draw_game(self) -> None:
-        """Draw all on the screen"""
-        # background
-        self.background.draw(self.screen)
+    def change_weapon(self, button, weapon) -> None:
+        self.weapon = weapon
+        for butt in self.buttons:
+            butt["element"].unselect()
+        button.select()
         
-        # grid
-        # [pygame.draw.line(self.screen, self.grid_color, (i, 0), (i, self.height)) for i in range(0, self.width, self.cell_size)]
-        # [pygame.draw.line(self.screen, self.grid_color, (0, i), (self.width, i)) for i in range(0, self.height, self.cell_size)]
+    def create_button(self, name, rect, text, callback, *args) -> None:
+        element = gui.elements.UIButton(
+            relative_rect=pygame.Rect(rect), 
+            text=text,
+            manager=self.manager
+        )
+        button = {"name": name,
+                  "element": element,
+                  "callback": callback,
+                  "args": args}
+        self.buttons.append(button)
+    
+    def main_menu(self) -> None:
+        self.manager.clear_and_reset()
+        self.buttons = []
         
-        # player and projectiles
-        self.player.draw(self.screen, pygame.mouse.get_pos())
+        self.create_button("start_game", pygame.Rect(width / 2 - 250, height / 2 + 100, 500, 100), "Начать игру", self.start_game)
+        self.create_button("shop_menu", pygame.Rect(width / 2 - 200, height / 2 + 200, 200, 100), "Магазин", self.shop_menu)
+        self.create_button("settings_menu", pygame.Rect(width / 2, height / 2 + 200, 200, 100), "Настройки", self.settings_menu)
         
-        for projectile in self.player.projectiles:
-            projectile.draw(self.screen)
-            projectile.update_pos()
-
-        # enemy
-        for enemy in self.enemies.enemies:
-            enemy.draw(self.screen)
-            enemy.move((self.player.x, self.player.y))
+        self.run()
+            
+    def shop_menu(self) -> None:
+        self.manager.clear_and_reset()
+        self.buttons = []
         
-    async def check_collision(self):
-        # check collisions
-        for projectile in self.player.projectiles:
-            for enemy in self.enemies.enemies:
-                if projectile.rect.colliderect(enemy.rect):
-                    enemy.get_damage(projectile.damage)
-                    
-                    if enemy.health <= 0:
-                        self.enemies.enemies.remove(enemy)
-                    if projectile in self.player.projectiles:    # need to avoid some error
-                        self.player.projectiles.remove(projectile)
-                    
-                if projectile.x < -bullet_size[0] or projectile.y < -bullet_size[1] or projectile.x > self.width + bullet_size[0] \
-                    or projectile.y > self.height + bullet_size[1]:
-                    if projectile in self.player.projectiles:
-                        self.player.projectiles.remove(projectile)
-                    
-    def game_cycle(self):
-        """Game action processing"""
-        shooting = False
-        self.timer.add_timer("spawn_enemy", 1000, self.enemies.spawn_enemy)
+        pistol_img = pygame.transform.scale(pygame.image.load("imgs/weapon/pistol.png"), (self.shop_card_size, self.shop_card_size))
+        automat_img = pygame.transform.scale(pygame.image.load("imgs/weapon/automat.png"), (self.shop_card_size, self.shop_card_size))
+        minigun_img = pygame.transform.scale(pygame.image.load("imgs/weapon/minigun.png"), (self.shop_card_size, self.shop_card_size))
+        
+        self.create_button(
+            "back", 
+            pygame.Rect(20, 20, 150, 50), 
+            "Назад", 
+            self.main_menu)
+        
+        self.create_button(
+            "pistol", 
+            pygame.Rect(width / 2 - self.shop_card_size / 2 - 250, height / 2 + 100,  self.shop_card_size, self.shop_card_size), 
+            "", 
+            self.change_weapon, 
+            "pistol")
+        
+        self.create_button(
+            "automat",
+            pygame.Rect(width / 2 - self.shop_card_size / 2, height / 2 + 100, self.shop_card_size, self.shop_card_size), 
+            "", 
+            self.change_weapon, 
+            "automat")
+        
+        self.create_button(
+            "minigun",
+            pygame.Rect(width / 2 - self.shop_card_size / 2 + 250, height / 2 + 100, self.shop_card_size, self.shop_card_size), 
+            "", 
+            self.change_weapon, 
+            "minigun")
+        
+        gui.elements.UILabel(
+            relative_rect=pygame.Rect(width / 2 - 300, 50, 600, 300),
+            text="ВЫБЕРИ ОРУЖИЕ",
+            manager=self.manager).set_active_effect(gui.TEXT_EFFECT_FADE_IN, {"time_per_alpha_change": 10})
+        
+        gui.elements.UIImage(
+            relative_rect=pygame.Rect(width / 2 - self.shop_card_size / 2 - 250, height / 2 + 100,  self.shop_card_size, self.shop_card_size),
+            image_surface=pistol_img,
+            manager=self.manager)
+        
+        gui.elements.UIImage(
+            relative_rect=pygame.Rect(width / 2 - self.shop_card_size / 2, height / 2 + 100, self.shop_card_size, self.shop_card_size),
+            image_surface=automat_img,
+            manager=self.manager)
+        
+        gui.elements.UIImage(
+            relative_rect=pygame.Rect(width / 2 - self.shop_card_size / 2 + 250, height / 2 + 100, self.shop_card_size, self.shop_card_size),
+            image_surface=minigun_img,
+            manager=self.manager)
+        
+        self.run()
+        
+    def settings_menu(self) -> None:
+        self.manager.clear_and_reset()
+        self.buttons = []
+        
+        
+        self.create_button("back", pygame.Rect(20, 20, 150, 50), "Назад", self.main_menu)
+        self.run()
+        
+    def run(self) -> None:
         while True:
             for event in pygame.event.get():
+                self.manager.process_events(event)
                 if event.type == pygame.QUIT:
                     exit()
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    shooting = True
-                    if self.player.weapon == "pistol":
-                        self.timer.add_timer("player_shoot", pistol_attack, self.player.shoot, self.mouse_pos)
-                    elif self.player.weapon == "automat":
-                        self.timer.add_timer("player_shoot", automat_attack, self.player.shoot, self.mouse_pos)
-                    elif self.player.weapon == "minigun":
-                        self.timer.add_timer("player_shoot", minigun_attack, self.player.shoot, self.mouse_pos)
-                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                    shooting = False
-                    self.timer.remove_timer("player_shoot")
                     
-            if shooting:
-                self.mouse_pos = pygame.mouse.get_pos()
-                self.timer.update_timer("player_shoot", self.mouse_pos)
-                
-            asyncio.run(self.draw_game())
-            asyncio.run(self.check_collision())
-            self.timer.update()
+                if event.type == gui.UI_BUTTON_PRESSED:
+                    pygame.mixer.music.play()
+                    for button in self.buttons:
+                        if button["element"] == event.ui_element:
+                            if button["callback"] == self.change_weapon:
+                                self.change_weapon(button["element"], *button["args"])
+                            else:
+                                button["callback"](*button["args"])
+        
+            self.screen.blit(self.background_img, (0, 0))
+            self.manager.update(fps)
+            self.manager.draw_ui(self.screen)
             pygame.display.update()
-            self.clock.tick(self.fps)
+            self.clock.tick(fps)
+        
 
-
-if __name__ == '__main__':
-    game = Game()
-    game.start_game(game_title, width, height, sell_size, fps)
-    
+if __name__ == "__main__":
+    pygame.init()
+    screen = pygame.display.set_mode((width, height))
+    game_gui = GameGui(screen)
+    game_gui.main_menu()

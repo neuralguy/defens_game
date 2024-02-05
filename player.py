@@ -5,14 +5,15 @@ from sprites import get_sprites
 import pygame
 
 
-class Player:
+class Player(pygame.sprite.Sprite):
     def __init__(self) -> None:
+        pygame.sprite.Sprite.__init__(self)
         self.x = width / 2 - player_size[0] / 2
         self.y = height / 2 - player_size[1] / 2
         self.__health = player_health
         self.projectiles = []
-        self.weapon = "minigun"
-        self.sprites = get_sprites("player")
+        self.image = get_sprites("player")[0]
+        self.rect = self.image.get_rect(topleft=(self.x, self.y)).center
     
     def get_damage(self, damage) -> None:
         self.__health -= damage
@@ -27,8 +28,8 @@ class Player:
         player_pos = (self.x + player_size[0] / 2, self.y + player_size[1] / 2)
         randians = atan2(mouse_pos[1] - player_pos[1], mouse_pos[0] - player_pos[0])
         angle = degrees(randians)
-        rotated_sprite = pygame.transform.rotate(self.sprites[0], -angle)
-        new_rect = rotated_sprite.get_rect(center=self.sprites[0].get_rect(topleft=(self.x, self.y)).center)
+        rotated_sprite = pygame.transform.rotate(self.image, -angle)
+        new_rect = rotated_sprite.get_rect(center=self.rect)
         surface.blit(rotated_sprite, new_rect)
         
     def change_weapon(self, weapon) -> None:

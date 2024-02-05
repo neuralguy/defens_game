@@ -18,7 +18,7 @@ dark_gray = (50, 50, 50)
 
 # Bullet
 bullet_size = (20, 15)
-bullet_speed = 20
+bullet_speed = 30
 bullet_damage = 10
 
 # Player

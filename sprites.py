@@ -20,7 +20,7 @@ def get_sprites(type):
     return sprites[type]
 
 def prepare_sprites():
-    main_path = "/home/timon/Programming/Python/Pygame_projects/defens_game/imgs"
+    main_path = "imgs"
     dirs = listdir(main_path)
     for dir in dirs:
         imgs = listdir(join(main_path, dir))
